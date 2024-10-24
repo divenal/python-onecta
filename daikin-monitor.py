@@ -35,7 +35,7 @@ def main():
         # They suggest one per 10 minutes, which leaves around 50 for
         # actually controlling the system. Or perhaps downloading
         # consumption figures at the end of the day.
-        time.sleep(30)
+        time.sleep(600)
     
 
 if __name__ == "__main__":
