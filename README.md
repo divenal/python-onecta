@@ -94,3 +94,27 @@ Invoke the script with `get info` to get basic information, or `get gateway-devi
 Invoke with `sensors` to show a snapshot of the few temperatures it makes available.
 
 Or 'debug' shows the config, including remaining lifetime of the access token.
+
+## Problems
+
+There is a potential problem if you have multiple scripts sharing the key - if they
+decide to refresh at the same time, they will clash and may well corrupt the
+key/refresh token, which means you'll have to start again. Maybe I can add
+file locking to help with this.
+
+## daikin-monitor.py
+
+This is a script that prints out the sensor temperatures every 10 minutes.
+
+Output looks like
+
+```
+2024-10-25--00-05: outdoor=13 room=20.6 hw=38 lwt=20
+2024-10-25--00-15: outdoor=13 room=20.6 hw=38 lwt=23
+2024-10-25--00-25: outdoor=12 room=20.6 hw=34 lwt=37
+2024-10-25--00-36: outdoor=12 room=20.6 hw=34 lwt=37
+2024-10-25--00-46: outdoor=13 room=20.6 hw=43 lwt=49
+2024-10-25--00-56: outdoor=13 room=20.6 hw=45 lwt=29
+2024-10-25--01-06: outdoor=13 room=20.6 hw=45 lwt=29
+2024-10-25--01-16: outdoor=12 room=20.8 hw=45 lwt=32
+```
