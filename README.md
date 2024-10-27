@@ -11,7 +11,7 @@ learn python at the same time.
 
 See those other projects for more of the background on getting yourself setup,
 and of course the daikin api docs themselves at
-https://developer.cloud.daikineurope.com/docs/b0dffcaa-7b51-428a-bdff-a7c8a64195c0/introduction  (requires a daikin login).
+https://developer.cloud.daikineurope.com/ (requires a daikin login).
 
 Assuming you've already got the Onecta app running on a phone, you should already have login details.
 
@@ -118,3 +118,20 @@ Output looks like
 2024-10-25--01-06: outdoor=13 room=20.6 hw=45 lwt=29
 2024-10-25--01-16: outdoor=12 room=20.8 hw=45 lwt=32
 ```
+
+
+I actually run a slightly modified version : daikin-zappi.py
+
+I also have a zappi car chargepoint, and that can do monitoring of CT clamps,
+so I put one around the heat pump supply which allows the zappi to report
+the heatpump consumption. Modified script collects that at the same time
+and adds that to the output.)
+
+## daikin-consumption.py
+
+Fetches and outputs recent consumption figures. Assumption is that
+you want complete period, so it shows yesterday or last week,
+rather than in-progress today or this week.
+
+I invoke it from cron every morning to record daily results,
+and every monday morning to record weekly results.
