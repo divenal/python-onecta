@@ -6,12 +6,17 @@ Plus a simple CLI for getting the initial authentication
 established, and testing.
 """
 
+import fcntl
 import json
 import logging
 import pathlib
+import os
 import requests
 import time
 import sys
+
+from requests.adapters import HTTPAdapter, Retry
+from typing import TextIO
 
 _logger = logging.getLogger(__name__)
 
@@ -66,22 +71,10 @@ class Daikin:
         with self.app_file.open() as af:
             self.app = json.load(af)
 
-        self.load_key_file()
-
-        session = requests.Session()
-        session.headers.update({"Accept-Encoding": "gzip"})
-        self.session = session
-
-    def load_key_file(self) -> None:
-        """Load the key file, and calculate expiry time"""
         try:
             with self.key_file.open() as kf:
-                self.key = json.load(kf)
-
-            # we store the modtime so that we can detect if
-            # another process has updated it since we loaded it
-            self.key_modtime = self.key_file.stat().st_mtime
-            self.key_expiry = self.key_modtime + self.key["expires_in"] - 30
+                # no need to lock the file (and cannot, for read-only)
+                self.load_key_file(kf)
         except FileNotFoundError:
             _logger.error(
                 "cannot load keys file - you'll need to go through the interactive authentication process"
@@ -90,12 +83,36 @@ class Daikin:
             self.key_modtime = 0
             self.key_expiry = 0
 
-    def get_or_refresh_key(self, code=None) -> None:
+        session = requests.Session()
+        session.headers.update({"Accept-Encoding": "gzip"})
+        retries = Retry(total=5, backoff_factor=5)
+        session.mount(self.api_url, HTTPAdapter(max_retries=retries))
+        self.session = session
+
+    def load_key_file(self, kf: TextIO) -> None:
+        """Load the key file, and calculate expiry time.
+        Note that the caller must open the file and handle
+        locking.
+        """
+
+        self.key = json.load(kf)
+
+        # we store the modtime so that we can detect if
+        # another process has updated it since we loaded it
+        self.key_modtime = os.stat(kf.fileno()).st_mtime
+        self.key_expiry = self.key_modtime + self.key["expires_in"] - 30
+
+    def _get_or_refresh_key(self, code=None) -> str:
         """Generate or refresh access token.
 
         If code is supplied, it is taken as being a new code from
         an interactive authentication. Otherwise we are just using
-        the refresh token from an expired key."""
+        the refresh token from an expired key.
+
+        This returns the new key as a json string - it's up to
+        the caller to write it to the file. (So they can worry
+        about the locking...)
+        """
 
         args = {"client_id": self.app["id"], "client_secret": self.app["secret"]}
         if code:
@@ -111,11 +128,18 @@ class Daikin:
         url = self.idp_url + "/token?" + "&".join(f"{a}={b}" for a, b in args.items())
         r = requests.post(url)
         r.raise_for_status()
-        j = r.text
+        return r.text
+
+    def get_new_key(self, code: str) -> None:
+        """Wrapper for _get_or_refresh_key() that writes to file"""
+        j = self._get_or_refresh_code(code)
         with self.key_file.open(mode="w") as keys:
+            # probably no point bothering with lock since this is close to atomic
+            # and because it requires interacting with browser, very unlikely
+            # that any other client is running at the same time
             print(j, file=keys)
+            self.key_modtime = os.fstat(keys.fileno()).st_mtime
         self.key = json.loads(j)
-        self.key_modtime = self.key_file.stat().st_mtime
         self.key_expiry = self.key_modtime + self.key["expires_in"] - 30
 
     def check_key_expiry(self) -> None:
@@ -125,16 +149,44 @@ class Daikin:
             # still good.
             return
 
-        modtime = self.key_file.stat().st_mtime
-        if modtime > self.key_modtime:
-            # seems that another process has already updated the file
-            self.load_key_file()
-            if now < self.key_expiry:
-                # new key is good
-                return
+        with self.key_file.open(mode="r+") as kf:
+            fd = kf.fileno()
 
-        _logger.info("need to refresh key")
-        self.get_or_refresh_key()
+            # take an exclusive lock.
+            # Probably ought to create a "locked_file" thingy so that
+            # I can do
+            #   with locked_file(name, mode) as kf:
+            # then the unlocking would be done automatically. However,
+            # the lock is released as soon as the file is closed, so it's
+            # not really an issue. (On linux, at least...)
+            # I guess I could also do it as a try... finally
+
+            fcntl.flock(fd, fcntl.LOCK_EX)
+
+            modtime = os.fstat(fd).st_mtime
+            if modtime > self.key_modtime:
+                # seems that another process has already updated the file
+                self.load_key_file(kf)
+
+                now = time.time()   # flock() might have blocked for a while
+                if now < self.key_expiry:
+                    # new key is good
+                    fcntl.flock(fd, fcntl.LOCK_UN)  # not really needed - lock vanishes on close
+                    return
+                # else update happened too long ago..?
+
+            _logger.info("need to refresh key")
+            j = self._get_or_refresh_key()
+
+            kf.seek(0)
+            print(j, file=kf)
+            kf.truncate()    # in case new data was shorter
+            kf.flush()
+            self.key_modtime = os.fstat(fd).st_mtime
+            fcntl.flock(fd, fcntl.LOCK_UN)  # happens automatically at close anyway
+
+        self.key = json.loads(j)
+        self.key_expiry = self.key_modtime + self.key["expires_in"] - 30
 
     def get(self, command: str) -> dict:
         """Perform a get on an api leaf.
@@ -180,7 +232,7 @@ def main():
             )
         else:
             # we have a new code - need to turn it into credentials
-            daikin.get_or_refresh_key(code=sys.argv[2])
+            daikin.get_new_key(code=sys.argv[2])
 
     elif sys.argv[1] == "refresh":
         # refresh the key if necessary.

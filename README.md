@@ -99,8 +99,9 @@ Or 'debug' shows the config, including remaining lifetime of the access token.
 
 There is a potential problem if you have multiple scripts sharing the key - if they
 decide to refresh at the same time, they will clash and may well corrupt the
-key/refresh token, which means you'll have to start again. Maybe I can add
-file locking to help with this.
+key/refresh token, which means you'll have to start again. The script does use
+file locking which is intended to reduce this risk, but I've not tested it
+aggressively, so I can't be sure it actually works...
 
 ## daikin-monitor.py
 
