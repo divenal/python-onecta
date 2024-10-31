@@ -121,11 +121,10 @@ Output looks like
 
 
 I actually run a slightly modified version : daikin-zappi.py
-
 I also have a zappi car chargepoint, and that can do monitoring of CT clamps,
 so I put one around the heat pump supply which allows the zappi to report
 the heatpump consumption. Modified script collects that at the same time
-and adds that to the output.)
+and adds that to the output.
 
 ## daikin-consumption.py
 

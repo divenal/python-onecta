@@ -23,7 +23,7 @@ def main():
     now = datetime.now()
     tstamp = now.strftime("%Y%m%d-%H%M")
 
-    zf = gzip.open(filename="/tmp/daikin." + tstamp + "log.gz", mode="wt")
+    zf = gzip.open(filename="/tmp/daikin." + tstamp + ".log.gz", mode="wt")
     gz_log_handler = logging.StreamHandler(zf)
     _logger.addHandler(gz_log_handler)
 
