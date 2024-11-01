@@ -16,8 +16,8 @@ from myenergi import MyenergiApi
 
 _logger = logging.getLogger(__name__)
 
-def main():
 
+def main():
     # log to both file and console
 
     now = datetime.now()
@@ -31,7 +31,9 @@ def main():
     _logger.addHandler(stderr_log_handler)
 
     # prefix timestamp onto the file logger
-    formatter = logging.Formatter(fmt="%(asctime)s: %(message)s", datefmt="%Y-%m-%d--%H-%M")
+    formatter = logging.Formatter(
+        fmt="%(asctime)s: %(message)s", datefmt="%Y-%m-%d--%H-%M"
+    )
     gz_log_handler.setFormatter(formatter)
 
     _logger.setLevel(logging.DEBUG)
@@ -42,13 +44,11 @@ def main():
     myenergi = MyenergiApi()
 
     while True:
-
         # heatpump is attached to CT#2
         # direction is backwards so that app animates it correctly
-        stat = myenergi.get('/cgi-jstatus-Z')
-        zappi = stat['zappi'][0]
-        power = -zappi['ectp3']
-
+        stat = myenergi.get("/cgi-jstatus-Z")
+        zappi = stat["zappi"][0]
+        power = -zappi["ectp3"]
 
         mp = daikin.management_points()
 
@@ -65,13 +65,22 @@ def main():
         hw = hwt["tankTemperature"]["value"]
 
         # now = datetime.now()
-        _logger.info("power=%4d outdoor=%2d room=%2.1f / %2.1f hw=%d lwt=%d", power, outdoor, room, target, hw, lwt)
+        _logger.info(
+            "power=%4d outdoor=%2d room=%2.1f / %2.1f hw=%d lwt=%d",
+            power,
+            outdoor,
+            room,
+            target,
+            hw,
+            lwt,
+        )
 
         # Daikin API requests are limited to 200 per day
         # They suggest one per 10 minutes, which leaves around 50 for
         # actually controlling the system. Or perhaps downloading
         # consumption figures at the end of the day.
         time.sleep(600)
-    
+
+
 if __name__ == "__main__":
     main()

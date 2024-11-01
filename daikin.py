@@ -168,10 +168,12 @@ class Daikin:
                 # seems that another process has already updated the file
                 self.load_key_file(kf)
 
-                now = time.time()   # flock() might have blocked for a while
+                now = time.time()  # flock() might have blocked for a while
                 if now < self.key_expiry:
                     # new key is good
-                    fcntl.flock(fd, fcntl.LOCK_UN)  # not really needed - lock vanishes on close
+                    fcntl.flock(
+                        fd, fcntl.LOCK_UN
+                    )  # not really needed - lock vanishes on close
                     return
                 # else update happened too long ago..?
 
@@ -180,7 +182,7 @@ class Daikin:
 
             kf.seek(0)
             print(j, file=kf)
-            kf.truncate()    # in case new data was shorter
+            kf.truncate()  # in case new data was shorter
             kf.flush()
             self.key_modtime = os.fstat(fd).st_mtime
             fcntl.flock(fd, fcntl.LOCK_UN)  # happens automatically at close anyway
@@ -195,11 +197,10 @@ class Daikin:
         self.check_key_expiry()
         url = self.api_url + "/" + command
         headers = {"Authorization": "Bearer " + self.key["access_token"]}
-        r = self.session.request('GET', url, headers=headers)
+        r = self.session.request("GET", url, headers=headers)
         r.raise_for_status()
         # print(r.text)
         return json.loads(r.text)
-
 
     def management_points(self):
         """Return the "managePoints" from the first gateway device.
@@ -210,10 +211,10 @@ class Daikin:
         or "domesticHotWaterTank".
         """
 
-        gw = self.get('gateway-devices')
+        gw = self.get("gateway-devices")
 
         # assume there's just one gateway device
-        return { item["embeddedId"]: item for item in gw[0]["managementPoints"]}
+        return {item["embeddedId"]: item for item in gw[0]["managementPoints"]}
 
 
 def main():

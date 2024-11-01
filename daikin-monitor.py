@@ -11,8 +11,8 @@ from daikin import Daikin
 
 _logger = logging.getLogger(__name__)
 
-def main():
 
+def main():
     # log to both file and console
 
     now = datetime.now()
@@ -26,7 +26,9 @@ def main():
     _logger.addHandler(stderr_log_handler)
 
     # prefix timestamp onto the file logger
-    formatter = logging.Formatter(fmt="%(asctime)s: %(message)s", datefmt="%Y-%m-%d--%H:%M")
+    formatter = logging.Formatter(
+        fmt="%(asctime)s: %(message)s", datefmt="%Y-%m-%d--%H:%M"
+    )
     gz_log_handler.setFormatter(formatter)
 
     _logger.setLevel(logging.DEBUG)
@@ -54,7 +56,7 @@ def main():
         # actually controlling the system. Or perhaps downloading
         # consumption figures at the end of the day.
         time.sleep(600)
-    
+
 
 if __name__ == "__main__":
     main()
