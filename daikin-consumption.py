@@ -29,12 +29,7 @@ def main():
 
     daikin = Daikin()
 
-    gw = daikin.get("gateway-devices")
-
-    # build a dictionary of the management points,
-    # keyed on the embeddedId, so that we can look them up
-    # by name rather than searching in the array for them
-    mp = {item["embeddedId"]: item for item in gw[0]["managementPoints"]}
+    mp = daikin.management_points()
 
     today = datetime.datetime.now().date()
     if want == 'd':

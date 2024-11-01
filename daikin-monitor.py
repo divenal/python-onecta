@@ -36,14 +36,7 @@ def main():
     daikin = Daikin()
 
     while True:
-        gw = daikin.get("gateway-devices")
-
-        # could write the raw data to a file in /tmp
-
-        # build a dictionary of the management points,
-        # keyed on the embeddedId, so that we can look them up
-        # by name rather than searching in the array for them
-        mp = {item["embeddedId"]: item for item in gw[0]["managementPoints"]}
+        mp = daikin.management_points()
 
         mz = mp["climateControlMainZone"]["sensoryData"]["value"]
         lwt = mz["leavingWaterTemperature"]["value"]

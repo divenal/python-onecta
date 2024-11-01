@@ -201,6 +201,21 @@ class Daikin:
         return json.loads(r.text)
 
 
+    def management_points(self):
+        """Return the "managePoints" from the first gateway device.
+
+        The raw output from gateway-devices contains an array of managementPoints
+        but it's convenient to access them by their type, so pack them into
+        a dictionary, keyed on "embeddedId", which are things like "climateControlMainZone"
+        or "domesticHotWaterTank".
+        """
+
+        gw = self.get('gateway-devices')
+
+        # assume there's just one gateway device
+        return { item["embeddedId"]: item for item in gw[0]["managementPoints"]}
+
+
 def main():
     """Entry point if invoked as a script"""
 
@@ -241,24 +256,20 @@ def main():
         daikin.get_or_refresh_key()
 
     elif sys.argv[1] == "sensors":
-        # This is a bit higher-level than I had intended for
-        # main() - really ought to be in a separate script
+        mp = daikin.management_points()
 
-        gw = daikin.get("gateway-devices")
+        sd = mp["climateControlMainZone"]["sensoryData"]["value"]
+        lwt = sd["leavingWaterTemperature"]["value"]
+        outdoor = sd["outdoorTemperature"]["value"]
+        room = sd["roomTemperature"]["value"]
 
-        # build a dictionary of the management points,
-        # keyed on the embeddedId, so that we can look them up
-        # by name rather than searching in the array for them
-        mp = {item["embeddedId"]: item for item in gw[0]["managementPoints"]}
-
-        mz = mp["climateControlMainZone"]["sensoryData"]["value"]
-        lwt = mz["leavingWaterTemperature"]["value"]
-        outdoor = mz["outdoorTemperature"]["value"]
-        room = mz["roomTemperature"]["value"]
+        tc = mp["climateControlMainZone"]["temperatureControl"]["value"]
+        # should this be "auto", or "heating" ?
+        target = tc["operationModes"]["auto"]["setpoints"]["roomTemperature"]["value"]
 
         hwt = mp["domesticHotWaterTank"]["sensoryData"]["value"]
         hw = hwt["tankTemperature"]["value"]
-        print(f"outdoor={outdoor}, room={room}, hw={hw}, lwt={lwt}")
+        print(f"outdoor={outdoor}, room={room} / {target}, hw={hw}, lwt={lwt}")
 
     elif sys.argv[1] == "get":
         if len(sys.argv) == 2:

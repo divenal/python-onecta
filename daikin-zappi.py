@@ -50,23 +50,22 @@ def main():
         power = -zappi['ectp3']
 
 
-        gw = daikin.get("gateway-devices")
+        mp = daikin.management_points()
 
-        # build a dictionary of the management points,
-        # keyed on the embeddedId, so that we can look them up
-        # by name rather than searching in the array for them
-        mp = {item["embeddedId"]: item for item in gw[0]["managementPoints"]}
+        sd = mp["climateControlMainZone"]["sensoryData"]["value"]
+        lwt = sd["leavingWaterTemperature"]["value"]
+        outdoor = sd["outdoorTemperature"]["value"]
+        room = sd["roomTemperature"]["value"]
 
-        mz = mp["climateControlMainZone"]["sensoryData"]["value"]
-        lwt = mz["leavingWaterTemperature"]["value"]
-        outdoor = mz["outdoorTemperature"]["value"]
-        room = mz["roomTemperature"]["value"]
+        tc = mp["climateControlMainZone"]["temperatureControl"]["value"]
+        # should this be "auto", or "heating" ?
+        target = tc["operationModes"]["auto"]["setpoints"]["roomTemperature"]["value"]
 
         hwt = mp["domesticHotWaterTank"]["sensoryData"]["value"]
         hw = hwt["tankTemperature"]["value"]
 
         # now = datetime.now()
-        _logger.info("power=%4d outdoor=%2d room=%2.1f hw=%d lwt=%d", power, outdoor, room, hw, lwt)
+        _logger.info("power=%4d outdoor=%2d room=%2.1f / %2.1f hw=%d lwt=%d", power, outdoor, room, target, hw, lwt)
 
         # Daikin API requests are limited to 200 per day
         # They suggest one per 10 minutes, which leaves around 50 for
