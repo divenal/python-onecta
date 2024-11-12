@@ -38,13 +38,14 @@ class Daikin:
 
     # configuration
 
-    # This is a trivial generic script running on a free hosting site.
+    # This points to a trivial generic script running on a free hosting site.
     # It simply echos the 'code' parameter to the page, from which
-    # you can paste it in - see 'code' in main().
+    # you can paste it in - see the 'code' sub-command in main().
     redir = "https://ibmx20.infinityfreeapp.com/daikin.php"
 
     # the json-formatted file containing the app details: the "id"
-    # and the "secret"
+    # and the "secret", and optionally the "device" if you want
+    # to make changes.
     app_file = pathlib.Path.home() / ".daikin_app.json"
 
     # The json file containing the access token - it is the
@@ -70,6 +71,10 @@ class Daikin:
     def __init__(self):
         with self.app_file.open() as af:
             self.app = json.load(af)
+
+        self.id = self.app["id"]
+        self.secret = self.app["secret"]
+        self.device = self.app.get("device", None)
 
         try:
             with self.key_file.open() as kf:
@@ -114,7 +119,7 @@ class Daikin:
         about the locking...)
         """
 
-        args = {"client_id": self.app["id"], "client_secret": self.app["secret"]}
+        args = {"client_id": self.id, "client_secret": self.secret}
         if code:
             # it's a new code
             args["grant_type"] = "authorization_code"
@@ -202,6 +207,18 @@ class Daikin:
         # print(r.text)
         return json.loads(r.text)
 
+    def patch(self, name: str, **payload) -> None:
+        """Perform a patch on a management id
+        Additional keyword parameters are sent as the body payload.
+        """
+        if self.device is None:
+            raise ValueError("need to configure device")
+        self.check_key_expiry()
+        url = f"{self.api_url}/gateway-devices/{self.device}/management-points/{name}"
+        headers = {"Authorization": "Bearer " + self.key["access_token"]}
+        r = self.session.request("PATCH", url, headers=headers, json=payload)
+        r.raise_for_status()
+
     def management_points(self):
         """Return the "managePoints" from the first gateway device.
 
@@ -214,15 +231,34 @@ class Daikin:
         gw = self.get("gateway-devices")
 
         # assume there's just one gateway device
+
+        if self.device is None:
+            # no device configured - stash the id of the first gateway
+            # for later
+            self.device = gw[0]["id"]
+            _logger.info("gateway device id is %s", self.device)
+
         return {item["embeddedId"]: item for item in gw[0]["managementPoints"]}
+
+    def set_temperature_control(self, name, value):
+        """Patch a temperature control = either "roomTemperature" or "leavingWaterOffset" """
+        self.patch(
+            "climateControlMainZone/characteristics/temperatureControl",
+            path="/operationModes/heating/setpoints/" + name,
+            value=value,
+        )
 
 
 def main():
     """Entry point if invoked as a script"""
 
-    if len(sys.argv) == 1:
-        print(f"Usage: {sys.argv[0]} code [token]|refresh|get XXX|sensors|debug")
+    if len(sys.argv) == 1 or sys.argv[1] == "help":
+        print(
+            f"Usage: {sys.argv[0]} code [token] |refresh | get XXX | sensors | mp | debug | temp [value] | lwo [value]"
+        )
         return
+
+    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
     daikin = Daikin()
 
@@ -280,6 +316,18 @@ def main():
         # perform a GET on an API url
         d = daikin.get(sys.argv[2])
         print(json.dumps(d, indent=4))
+
+    elif sys.argv[1] == "mp":
+        mp = daikin.management_points()
+        print(json.dumps(mp, indent=4))
+
+    elif sys.argv[1] == "temp":
+        temp = float(sys.argv[2])
+        daikin.set_temperature_control("roomTemperature", value=temp)
+
+    elif sys.argv[1] == "lwo":
+        lwo = int(sys.argv[2])
+        daikin.set_temperature_control("leavingWaterOffset", value=lwo)
 
     elif sys.argv[1] == "debug":
         print(json.dumps(daikin.app, indent=4))

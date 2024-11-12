@@ -72,6 +72,9 @@ That should be json-formatted, like
 }
 ```
 
+If you want to be able to make changes using the scripts, you can add a third field "device" - you can find
+the value you need once you've got the basic functionality working.
+
 ## Authenticate the app to use your daikin system.
 
 Invoke the python script with a single parameter `code`. That will print out the url you need to open to authenticate the app.
@@ -95,6 +98,31 @@ Invoke with `sensors` to show a snapshot of the few temperatures it makes availa
 
 Or 'debug' shows the config, including remaining lifetime of the access token.
 
+## Making changes with the API
+
+As mentioned above, you'll have to add a "device" to the config file to make changes.
+You can get this using  `get sites` which will output
+
+
+```
+[
+    {
+        "_id": "XXX-YYYY-ZZZZ",
+        "id": "XXX-YYYY-ZZZZ",
+        "gatewayDevices": [
+          "AAAA-BBB-CCC"
+        ],
+        ...
+    }
+]
+```
+
+Or you can also get the gatewayDevice id from  `get gateway-devices`.
+
+These scripts assume only one device
+
+The scripts could possibly issue a `get sites` automatically if you've not conifugured a site.
+
 ## Problems
 
 There is a potential problem if you have multiple scripts sharing the key - if they
@@ -110,22 +138,18 @@ This is a script that prints out the sensor temperatures every 10 minutes.
 Output looks like
 
 ```
-2024-10-25--00-05: outdoor=13 room=20.6 hw=38 lwt=20
-2024-10-25--00-15: outdoor=13 room=20.6 hw=38 lwt=23
-2024-10-25--00-25: outdoor=12 room=20.6 hw=34 lwt=37
-2024-10-25--00-36: outdoor=12 room=20.6 hw=34 lwt=37
-2024-10-25--00-46: outdoor=13 room=20.6 hw=43 lwt=49
-2024-10-25--00-56: outdoor=13 room=20.6 hw=45 lwt=29
-2024-10-25--01-06: outdoor=13 room=20.6 hw=45 lwt=29
-2024-10-25--01-16: outdoor=12 room=20.8 hw=45 lwt=32
+2024-10-25--00-05: outdoor=13 room=20.3 / 20.5 hw=38 lwt=20 (offs=0)
+2024-10-25--00-15: outdoor=13 room=20.4 / 20.5 hw=38 lwt=23 (offs=0)
+2024-10-25--00-25: outdoor=12 room=20.4 / 20.5 hw=34 lwt=37 (offs=0)
+...
 ```
 
+where second number after room is the target temperature, and
+offs is the 'leaving water offset' which can be set via app
+or API (to tweak the lwt).
 
-I actually run a slightly modified version : daikin-zappi.py
-I also have a zappi car chargepoint, and that can do monitoring of CT clamps,
-so I put one around the heat pump supply which allows the zappi to report
-the heatpump consumption. Modified script collects that at the same time
-and adds that to the output.
+I actually run a slightly modified version which also displays the
+the power consumption as measured by a CT clamp monitored by my Zappi charger.
 
 ## daikin-consumption.py
 
