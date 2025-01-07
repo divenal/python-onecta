@@ -131,13 +131,13 @@ class Daikin:
             args["refresh_token"] = self.key["refresh_token"]
 
         url = self.idp_url + "/token?" + "&".join(f"{a}={b}" for a, b in args.items())
-        r = requests.post(url)
+        r = requests.post(url, timeout=30)
         r.raise_for_status()
         return r.text
 
     def get_new_key(self, code: str) -> None:
         """Wrapper for _get_or_refresh_key() that writes to file"""
-        j = self._get_or_refresh_code(code)
+        j = self._get_or_refresh_key(code)
         with self.key_file.open(mode="w") as keys:
             # probably no point bothering with lock since this is close to atomic
             # and because it requires interacting with browser, very unlikely
@@ -202,7 +202,7 @@ class Daikin:
         self.check_key_expiry()
         url = self.api_url + "/" + command
         headers = {"Authorization": "Bearer " + self.key["access_token"]}
-        r = self.session.request("GET", url, headers=headers)
+        r = self.session.request("GET", url, headers=headers, timeout=30)
         r.raise_for_status()
         # print(r.text)
         return json.loads(r.text)
@@ -216,7 +216,7 @@ class Daikin:
         self.check_key_expiry()
         url = f"{self.api_url}/gateway-devices/{self.device}/management-points/{name}"
         headers = {"Authorization": "Bearer " + self.key["access_token"]}
-        r = self.session.request("PATCH", url, headers=headers, json=payload)
+        r = self.session.request("PATCH", url, headers=headers, json=payload, timeout=30)
         r.raise_for_status()
 
     def management_points(self):
@@ -249,12 +249,19 @@ class Daikin:
         )
 
 
+    def set_powerful_mode(self, state):
+        """Turn water immersion heater on or off"""
+        self.patch(
+            "domesticHotWaterTank/characteristics/powerfulMode",
+            value = "on" if state else "off"
+        )
+
 def main():
     """Entry point if invoked as a script"""
 
     if len(sys.argv) == 1 or sys.argv[1] == "help":
         print(
-            f"Usage: {sys.argv[0]} code [token] |refresh | get XXX | sensors | mp | debug | temp [value] | lwo [value]"
+            f"Usage: {sys.argv[0]} code [token] |refresh | get XXX | sensors | mp | debug | temp [value] | lwo [value] | powerful [0|1]"
         )
         return
 
@@ -328,6 +335,10 @@ def main():
     elif sys.argv[1] == "lwo":
         lwo = int(sys.argv[2])
         daikin.set_temperature_control("leavingWaterOffset", value=lwo)
+
+    elif sys.argv[1] == "powerful":
+        state = int(sys.argv[2])
+        daikin.set_powerful_mode(state)
 
     elif sys.argv[1] == "debug":
         print(json.dumps(daikin.app, indent=4))
